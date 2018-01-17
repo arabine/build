@@ -34,8 +34,19 @@ LDFLAGS = $(addprefix -L, $(APP_LIBPATH))
 
 # FIXME: different CFLAGS for debug/release targets
 DEFINES	+= -DUNICODE -DCONFIG_NATIVE_WINDOWS
-CFLAGS  = -c -pipe -g -O0 -pedantic -std=c99 -ggdb -Wall -Wextra -fms-extensions
-CPPFLAGS = -c -pipe -g -O0 -pedantic -ggdb -Wall -Wextra -std=c++14 -fms-extensions
+CFLAGS  = -c -pedantic -std=c99 -Wall -Wextra -fms-extensions
+CPPFLAGS = -c -pedantic -Wall -Wextra -std=c++14 -fms-extensions
+
+
+ifeq ($(TARGET), release)
+RELEASE_FLAGS := -O2
+CFLAGS += $(RELEASE_FLAGS)
+CPPFLAGS += $(RELEASE_FLAGS)
+else
+DEBUG_FLAGS := -ggdb -pipe -g -O0
+CFLAGS += $(DEBUG_FLAGS)
+CPPFLAGS += $(DEBUG_FLAGS)
+endif
 
 ifeq ($(OS_DETECTED), WIN32)
 CFLAGS  += -fno-keep-inline-dllexport
