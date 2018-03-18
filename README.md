@@ -4,7 +4,7 @@ Non-recursive make based build engine targeted for modular projects (modules, co
 
 # Head Makefile example
 
-
+'''
 # *******************************************************************************
 # Main makefile project
 # This makefile calls all the modules defined in the config.mk file
@@ -125,4 +125,4 @@ wipe:
 # *******************************************************************************
 # END OF MAKEFILE
 # *******************************************************************************
-
+'''
