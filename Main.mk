@@ -33,20 +33,10 @@ LD 		= g++
 LDFLAGS = $(addprefix -L, $(APP_LIBPATH))
 
 # FIXME: different CFLAGS for debug/release targets
-DEFINES	+= -DUNICODE -DCONFIG_NATIVE_WINDOWS
-CFLAGS  = -c -pedantic -std=c99 -Wall -Wextra -fms-extensions
-CPPFLAGS = -c -pedantic -Wall -Wextra -std=c++14 -fms-extensions
-
-
-ifeq ($(TARGET), release)
-RELEASE_FLAGS := -O2
-CFLAGS += $(RELEASE_FLAGS)
-CPPFLAGS += $(RELEASE_FLAGS)
-else
-DEBUG_FLAGS := -ggdb -pipe -g -O0
-CFLAGS += $(DEBUG_FLAGS)
-CPPFLAGS += $(DEBUG_FLAGS)
-endif
+# DEFINES	+= -DUNICODE -DCONFIG_NATIVE_WINDOWS # FIXME why ?
+CFLAGS  = -c -pipe -g -O0 -pedantic -std=c99 -ggdb -Wall -Wextra
+CPPFLAGS = -c -pipe -g -O0 -pedantic -ggdb -Wall -Wextra -std=c++11
+ARFLAGS = rcs
 
 ifeq ($(OS_DETECTED), WIN32)
 CFLAGS  += -fno-keep-inline-dllexport
@@ -59,14 +49,7 @@ LDFLAGS += -ldl -lpthread
 
 endif
 
-ifeq ($(ENABLE_DEP), true)
-	# List of dependencies
-	DEPENDENCIES = $(OBJECTS:%.o=%.d)
-	# Dependency flags
-	DEPEND_FLAGS = -MMD
-endif
-
-endif
+endif # GCC
 
 DEL_FILE      := rm -f
 CHK_DIR_EXISTS := test -d
@@ -98,35 +81,45 @@ $(strip \
 endef
 
 
-SOURCES 	:=
-INCLUDES 	:=
+SOURCES :=
+
 
 # Include all the modules sub-makefiles in one command
 -include $(patsubst %, %/Module.mk, $(ALL_MODULES))
+
 
 # Deduct objects to build 
 OBJECTS := $(addprefix $(OUTDIR),$(patsubst %.c, %.o, $(filter %.c,$(SOURCES))))
 OBJECTS += $(addprefix $(OUTDIR),$(patsubst %.cpp, %.o, $(filter %.cpp,$(SOURCES))))
 
+
 # Include generated dependency files, if any
+ifeq ($(ENABLE_DEP), true)
+	# List of dependencies
+	DEPENDENCIES := $(patsubst %.o,%.d,$(OBJECTS))
+	# Dependency flags
+	DEPEND_FLAGS = -MMD
+endif
+
+INCLUDES_CPY:=$(INCLUDES)
+
 -include $(DEPENDENCIES)
 
-
-INCLUDES += $(ALL_MODULES)
+INCLUDES_CPY += $(ALL_MODULES)
 
 $(addprefix $(OUTDIR), %.o): %.c
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) -p "$(dir $@)"
-	$(VERBOSE) $(CC) $(CFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES)) $(DEPEND_FLAGS) -o $@ $<
+	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(CC) $(CFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES_CPY)) $(DEPEND_FLAGS) -o $@ $<
 
 $(addprefix $(OUTDIR), %.o): %.cpp
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) -p "$(dir $@)"
-	$(VERBOSE) $(CPP) $(CPPFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES)) $(DEPEND_FLAGS) -o $@ $<
+	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(CPP) $(CPPFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES_CPY)) $(DEPEND_FLAGS) -o $@ $<
 
 $(addprefix $(OUTDIR), %.o): %.s
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) -p "$(dir $@)"
+	$(VERBOSE) $(MKDIR) "$(dir $@)"
 	$(VERBOSE) $(AS) $(ASFLAGS) -o $@ $< 
 	
 # *******************************************************************************
@@ -141,7 +134,14 @@ define linker
 	@echo " "
 endef
 
+# Arguments: $1=objects $2=library name
+define librarian
+	@echo "Invoking: Librarian $(OS_DETECTED)"
+	$(VERBOSE) $(AR) $(ARFLAGS) $(OUTDIR)$(strip $(2) $(1))
+	@echo "Finished building library: $(strip $(2))"
+	@echo " "
+endef
 
 # *******************************************************************************
-# 								   END OF MAKEFILE								*
+# END OF MAKEFILE								*
 # *******************************************************************************
