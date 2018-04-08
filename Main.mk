@@ -10,7 +10,7 @@
 .SUFFIXES:
 
 TARGET_ARCH :=
-TARGET_SUFFIX := 
+TARGET_SUFFIX :=
 
 # *******************************************************************************
 # COMPILER DETECTION
@@ -31,30 +31,55 @@ LIBDIR 	= $(addprefix -L, $(APP_LIBPATH))
 # FIXME: different CFLAGS for debug/release targets
 ARFLAGS = rcs
 
-ifeq (cm4, $(findstring cm4, $(ARCH)))
+# *******************************************************************************
+# Cortex-M3 compiler
+# *******************************************************************************
+ifeq (cm3, $(findstring cm3, $(ARCH)))
 
 OPT 			:= -Og
-CFLAGS 			:= -c $(OPT) -gdwarf-2 -Wall -fdata-sections -ffunction-sections
-TARGET_ARCH 	:= Cortex-M4
-CPU 			:= -mcpu=cortex-m4
-TARGET_SUFFIX 	:= .elf
-MCU 			:= $(CPU) -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
+CFLAGS 			:= -c $(OPT) -std=c99 -gdwarf-2 -Wall -fdata-sections -ffunction-sections -fmessage-length=0 -fno-builtin -mfix-cortex-m3-ldrd -fomit-frame-pointer -fno-exceptions
+TARGET_ARCH 	:= Cortex-M3
+TARGET_SUFFIX	:= .elf
+CPU 			:= -mcpu=cortex-m3
+MCU 			:= $(CPU) -mthumb
 CFLAGS 			+= $(MCU)
 CPPFLAGS 		+= $(MCU)
+GENERATE_HEX	:= true
 
 # libraries
 LIBS 			= -lc -lm -lnosys 
-LDFLAGS 		= $(MCU) -specs=nano.specs -T$(APP_LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(OUTDIR)/$(PROJECT).map,--cref -Wl,--gc-sections
+LDFLAGS 		= $(MCU) -Xlinker --gc-sections -Xlinker -Map=$(OUTDIR)/$(PROJECT).map -T$(APP_LDSCRIPT) $(LIBDIR) $(LIBS)
 
 # Dependency flags
 CFLAGS += -MMD -MP
 
-endif # Cortex-M4
+# *******************************************************************************
+# Cortex-M4 compiler
+# *******************************************************************************
+else ifeq (cm4, $(findstring cm4, $(ARCH)))
+
+OPT 			:= -Og
+CFLAGS 			:= -c $(OPT) -gdwarf-2 -Wall -fdata-sections -ffunction-sections -specs=nano.specs -specs=nosys.specs
+TARGET_ARCH 	:= Cortex-M4
+TARGET_SUFFIX	:= .elf
+CPU 			:= -mcpu=cortex-m4
+MCU 			:= $(CPU) -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
+CFLAGS 			+= $(MCU)
+CPPFLAGS 		+= $(MCU)
+GENERATE_HEX	:= true
+
+# libraries
+LIBS 			= -lc -lm -lnosys 
+LDFLAGS 		= $(MCU) -specs=nano.specs -specs=nosys.specs -T$(APP_LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(OUTDIR)/$(PROJECT).map,--cref -Wl,--gc-sections
+
+# Dependency flags
+CFLAGS += -MMD -MP
+
 
 # *******************************************************************************
 # HOST ARCHITECTURE: Unix, Windows, MacOS X
 # *******************************************************************************
-ifeq (host, $(findstring host, $(ARCH)))
+else ifeq (host, $(findstring host, $(ARCH)))
 
     ifeq ($(OS),Windows_NT)
         TARGET_ARCH := WIN32
@@ -78,6 +103,9 @@ CPPFLAGS = -c -pipe -g -O0 -pedantic -ggdb -Wall -Wextra -std=c++11
     endif
 endif # endif host architecture
 
+else
+
+	$(error Architecture not supported) 
 
 endif # GCC
 
@@ -126,9 +154,6 @@ OBJECTS += $(addprefix $(OUTDIR),$(patsubst %.s, %.o, $(filter %.s,$(SOURCES))))
 
 DEPENDENCIES := $(patsubst %.o,%.d,$(OBJECTS))
 
-# Include generated dependency files, if any
-#-include $(DEPENDENCIES)
-
 INCLUDES += $(ALL_MODULES)
 
 $(addprefix $(OUTDIR), %.o): %.c
@@ -146,36 +171,45 @@ $(addprefix $(OUTDIR), %.o): %.s
 	$(VERBOSE) $(MKDIR) "$(dir $@)"
 	$(VERBOSE) $(AS) $(CFLAGS) -o $@ $<
 
-$(OUTDIR)$(PROJECT).hex: $(OUTDIR)$(PROJECT).elf | $(OUTDIR)
-	$(HEX) $< $@
-
+# Include generated dependency files, if any
+-include $(DEPENDENCIES)
 
 # *******************************************************************************
 # GENERIC
 # *******************************************************************************
 
-TARGET_NAME	:= $(PROJECT)$(TARGET_SUFFIX)
-EXECUTABLE 	:= $(OUTDIR)$(TARGET_NAME)
-
-.PHONY: $(EXECUTABLE)
-$(EXECUTABLE): $(OBJECTS)
+# Arguments: $1=objects $2=libs $3=executable name
+define linker
+	$(eval EXECUTABLE := $(strip $(3)))
+	$(eval EXEC_FULLNAME := $(EXECUTABLE)$(TARGET_SUFFIX)) 
+	$(eval OUTPUT_EXEC := $(OUTDIR)$(EXEC_FULLNAME))
 	@echo "Invoking: Linker $(TARGET_ARCH)"
-	$(CC) $(OBJECTS) $(APP_LIBS) $(LDFLAGS) -o $(EXECUTABLE)
-	@echo "Finished building target: $(TARGET_NAME)"
+	$(VERBOSE) $(LD) $(1) $(2) $(LDFLAGS) -o $(OUTPUT_EXEC)
+	@echo "Finished building target: $(EXEC_FULLNAME)"
 	@echo " "
-	$(SZ) $@
+	$(if $(GENERATE_HEX), $(HEX) $(OUTPUT_EXEC) $(OUTDIR)$(EXECUTABLE).hex)
+	$(SZ) $(OUTPUT_EXEC)
+endef
 
-.PHONY: all
-all: $(EXECUTABLE) $(OUTDIR)$(PROJECT).hex
 
 
 # Arguments: $1=objects $2=library name
 define librarian
+	$(eval LIBRARY := $(strip $(2)))
 	@echo "Invoking: Librarian $(TARGET_ARCH)"
-	$(VERBOSE) $(AR) $(ARFLAGS) $(OUTDIR)$(strip $(2) $(1))
-	@echo "Finished building library: $(strip $(2))"
+	$(VERBOSE) $(AR) $(ARFLAGS) $(OUTDIR)$(LIBRARY) $(1)
+	@echo "Finished building library: $(LIBRARY)"
 	@echo " "
 endef
+
+.PHONY: all
+all:
+	@echo "Specify a target"
+
+.PHONY: wipe
+wipe:
+	@echo "Wiping output directory..."
+	$(VERBOSE) $(RM) -rf $(OUTDIR)
 
 # *******************************************************************************
 # END OF MAKEFILE								*
