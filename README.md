@@ -2,6 +2,16 @@
 
 Non-recursive make based build engine targeted for modular projects (modules, components based).
 
+## Module.mk structure
+
+### Hints
+
+Quickly list source files within a directory:
+
+```bash
+ls -1 *.c | xargs -i echo "{} \\"
+```
+
 # Head Makefile example
 
 ```make
