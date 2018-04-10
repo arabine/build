@@ -138,7 +138,7 @@ $(strip \
  )
 endef
 
-
+# Reset
 SOURCES :=
 INCLUDES :=
 
@@ -149,12 +149,14 @@ INCLUDES :=
 # Deduct objects to build 
 OBJECTS := $(addprefix $(OUTDIR),$(patsubst %.c, %.o, $(filter %.c,$(SOURCES))))
 OBJECTS += $(addprefix $(OUTDIR),$(patsubst %.cpp, %.o, $(filter %.cpp,$(SOURCES))))
+OBJECTS += $(addprefix $(OUTDIR),$(patsubst %.S, %.o, $(filter %.S,$(SOURCES))))
 OBJECTS += $(addprefix $(OUTDIR),$(patsubst %.s, %.o, $(filter %.s,$(SOURCES))))
-
 
 DEPENDENCIES := $(patsubst %.o,%.d,$(OBJECTS))
 
 INCLUDES += $(ALL_MODULES)
+INCLUDES += $(APP_INCLUDES)
+DEFINES += $(APP_DEFINES)
 
 $(addprefix $(OUTDIR), %.o): %.c
 	@echo "Building file: $(notdir $@)"
@@ -167,6 +169,11 @@ $(addprefix $(OUTDIR), %.o): %.cpp
 	$(VERBOSE) $(CPP) $(CPPFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES)) $(DEPEND_FLAGS) -o $@ $<
 
 $(addprefix $(OUTDIR), %.o): %.s
+	@echo "Building file: $(notdir $@)"
+	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(AS) $(CFLAGS) -o $@ $<
+	
+$(addprefix $(OUTDIR), %.o): %.S
 	@echo "Building file: $(notdir $@)"
 	$(VERBOSE) $(MKDIR) "$(dir $@)"
 	$(VERBOSE) $(AS) $(CFLAGS) -o $@ $<
