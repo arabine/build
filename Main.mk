@@ -109,12 +109,6 @@ else
 
 endif # GCC
 
-DEL_FILE      := rm -f
-CHK_DIR_EXISTS := test -d
-MKDIR         := mkdir -p
-COPY_FILE     := cp -f
-COPY_DIR      := cp -f -R
-MOVE          := mv -f
 
 # Verbosity shows all the commands that are executed by the makefile, and their arguments
 VERBOSE            ?= @
@@ -125,6 +119,7 @@ ALL_MODULES = $(MODULE)
 else
 ALL_MODULES = $(sort $(APP_MODULES))
 endif
+
 
 # Figure out where we are. Taken from Android build system thanks!
 define my-dir
@@ -141,6 +136,13 @@ endef
 # Reset
 SOURCES :=
 INCLUDES :=
+
+ifeq ($(OS),Windows_NT)
+include build/wintools/Module.mk 
+endif
+
+DEL_FILE      	:= $(RM) -f
+MKDIR_P         := $(MKDIR) -p
 
 # Include all the modules sub-makefiles in one command
 -include $(patsubst %, %/Module.mk, $(ALL_MODULES))
@@ -160,22 +162,22 @@ DEFINES += $(APP_DEFINES)
 
 $(addprefix $(OUTDIR), %.o): %.c
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(MKDIR_P) "$(dir $@)"
 	$(VERBOSE) $(CC) $(CFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES)) $(DEPEND_FLAGS) -o $@ $<
 
 $(addprefix $(OUTDIR), %.o): %.cpp
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(MKDIR_P) "$(dir $@)"
 	$(VERBOSE) $(CPP) $(CPPFLAGS) $(DEFINES) $(addprefix -I, $(INCLUDES)) $(DEPEND_FLAGS) -o $@ $<
 
 $(addprefix $(OUTDIR), %.o): %.s
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(MKDIR_P) "$(dir $@)"
 	$(VERBOSE) $(AS) $(CFLAGS) -o $@ $<
 	
 $(addprefix $(OUTDIR), %.o): %.S
 	@echo "Building file: $(notdir $@)"
-	$(VERBOSE) $(MKDIR) "$(dir $@)"
+	$(VERBOSE) $(MKDIR_P) "$(dir $@)"
 	$(VERBOSE) $(AS) $(CFLAGS) -o $@ $<
 
 # Include generated dependency files, if any
