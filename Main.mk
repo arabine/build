@@ -138,7 +138,9 @@ SOURCES :=
 INCLUDES :=
 
 ifeq ($(OS),Windows_NT)
-include build/wintools/Module.mk 
+include build/wintools/Module.mk
+else
+include build/posix/Module.mk 
 endif
 
 DEL_FILE      	:= $(RM) -f
